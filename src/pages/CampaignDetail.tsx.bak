@@ -1,0 +1,334 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabaseClient';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { ArrowLeft, Camera, Video, FileText, Users, Calendar, Trophy, Upload } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import Navbar from '@/components/Navbar';
+
+const CampaignDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
+  const [submission, setSubmission] = useState({
+    content: '',
+    file: null as File | null
+  });
+
+  const [campaign, setCampaign] = useState<any>(null);
+
+  // Fetch campaign data from Supabase
+  useEffect(() => {
+    const fetchCampaign = async () => {
+      if (!id) return;
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching campaign:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load campaign details",
+          variant: "destructive",
+        });
+        navigate('/dashboard');
+        return;
+      }
+      
+      if (data) {
+        // Set default values for missing fields to maintain compatibility
+        setCampaign({
+          ...data,
+          type: data.type || 'photo',
+          status: data.status || 'active',
+          requirements: data.requirements || [
+            'Original content only',
+            'High-quality submission',
+            'Follow campaign guidelines'
+          ],
+          examples: data.examples || [
+            'Be creative with your submission',
+            'Show your unique perspective',
+            'Make it engaging'
+          ]
+        });
+      }
+    };
+
+    fetchCampaign();
+  }, [id, navigate]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSubmission({ ...submission, file });
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!submission.content) {
+      toast({
+        title: "Content Required",
+        description: "Please add a description for your submission",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (campaign.type === 'photo' && !submission.file) {
+      toast({
+        title: "File Required",
+        description: "Please upload a photo for this campaign",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Simulate submission
+    toast({
+      title: "Submission Successful!",
+      description: "Your submission has been sent for review. You'll be notified once it's approved.",
+    });
+
+    setIsSubmitOpen(false);
+    setSubmission({ content: '', file: null });
+    
+    // Navigate to submissions page
+    setTimeout(() => {
+      navigate('/my-submissions');
+    }, 1500);
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'photo': return <Camera className="w-5 h-5" />;
+      case 'video': return <Video className="w-5 h-5" />;
+      case 'text': return <FileText className="w-5 h-5" />;
+      default: return <Camera className="w-5 h-5" />;
+    }
+  };
+
+  if (!campaign) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate(-1)}
+            className="mb-6"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+          <div className="flex justify-center items-center h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const isDeadlinePassed = new Date(campaign.deadline) < new Date();
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Back Button */}
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)}
+          className="mb-6 hover:bg-muted/50"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            {/* Campaign Header */}
+            <Card className="glass-card neon-glow mb-8">
+              <CardHeader>
+                <div className="flex flex-col space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-4xl mb-4">by {campaign.name || campaign.company}</CardTitle>
+                      <p className="text-lg text-accent/90">
+                        {campaign.description}
+                      </p>
+                    </div>
+                    <Badge className="bg-gradient-primary text-primary-foreground text-lg px-6 py-3 rounded-full">
+                      <Trophy className="w-5 h-5 mr-2" />
+                      {campaign.points || campaign.reward || 0} points
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="flex items-center space-x-3">
+                      {getTypeIcon(campaign.type)}
+                      <span className="capitalize text-muted-foreground text-sm">{campaign.type} submission</span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Users className="w-5 h-5 text-neon-purple" />
+                      <span className="text-muted-foreground text-sm">
+                        {campaign.participants ? `${campaign.participants} participants` : 'No participants yet'}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Calendar className="w-5 h-5 text-neon-cyan" />
+                      <span className={`text-sm ${isDeadlinePassed ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        Due: {campaign.deadline ? new Date(campaign.deadline).toLocaleDateString() : 'No deadline set'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {isDeadlinePassed && (
+                  <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-4 mt-6">
+                    <p className="text-destructive font-medium">This campaign has ended</p>
+                    <p className="text-destructive/80 text-sm">Submissions are no longer accepted</p>
+                  </div>
+                )}
+              </CardHeader>
+            </Card>
+
+            {/* Campaign Details */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold mb-4">Campaign Details</h2>
+              <div className="text-muted-foreground">
+                {campaign.description}
+              </div>
+            </div>
+
+            {/* Requirements */}
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>Requirements</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {campaign.requirements.map((req, index) => (
+                    <li key={index} className="flex items-start space-x-2">
+                      <div className="w-2 h-2 bg-accent rounded-full mt-2 flex-shrink-0" />
+                      <span className="text-muted-foreground">{req}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div>
+            {/* Submit Section */}
+            <Card className="glass-card neon-glow sticky top-24">
+              <CardHeader>
+                <CardTitle className="gradient-text">Ready to Participate?</CardTitle>
+                <CardDescription>
+                  Submit your entry and earn {campaign.reward} points
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user?.role === 'user' ? (
+                  <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        className="w-full bg-gradient-primary hover:opacity-90 neon-glow"
+                        disabled={isDeadlinePassed}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Submit Entry
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="glass-card border-border/50 max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="gradient-text text-2xl">Submit Your Entry</DialogTitle>
+                        <DialogDescription>
+                          Upload your {campaign.type} and add a description
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {(campaign.type === 'photo' || campaign.type === 'video') && (
+                          <div>
+                            <Label htmlFor="file">Upload {campaign.type}</Label>
+                            <Input
+                              id="file"
+                              type="file"
+                              accept={campaign.type === 'photo' ? 'image/*' : 'video/*'}
+                              onChange={handleFileChange}
+                              className="cursor-pointer"
+                            />
+                            {submission.file && (
+                              <p className="text-sm text-green-400 mt-2">
+                                File selected: {submission.file.name}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        <div>
+                          <Label htmlFor="content">Description</Label>
+                          <Textarea
+                            id="content"
+                            value={submission.content}
+                            onChange={(e) => setSubmission({ ...submission, content: e.target.value })}
+                            placeholder="Describe your submission and share your story..."
+                            rows={4}
+                          />
+                        </div>
+                        <Button onClick={handleSubmit} className="w-full bg-gradient-primary hover:opacity-90">
+                          Submit Entry
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-4">
+                      Only users can participate in campaigns
+                    </p>
+                    <Button variant="outline" onClick={() => navigate('/brand-dashboard')}>
+                      Go to Brand Dashboard
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Examples */}
+            <Card className="glass-card mt-6">
+              <CardHeader>
+                <CardTitle>Example Ideas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {campaign.examples.map((example, index) => (
+                    <li key={index} className="flex items-start space-x-2">
+                      <div className="w-2 h-2 bg-neon-purple rounded-full mt-2 flex-shrink-0" />
+                      <span className="text-muted-foreground text-sm">{example}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CampaignDetail;

@@ -1,0 +1,75 @@
+    const handleSubmissionAction = async (submissionId: string, action: 'approve' | 'reject') => {
+      try {
+        // First get the submission details
+        const { data: submission, error: submissionError } = await supabase
+          .from('submissions')
+          .select(`
+            *,
+            campaigns (*),
+            users (*)
+          `)
+          .eq('id', submissionId)
+          .single();
+
+        if (submissionError || !submission) {
+          throw new Error(submissionError?.message || 'Submission not found');
+        }
+
+        // Update submission status
+        const { error: updateError } = await supabase
+          .from('submissions')
+          .update({ 
+            status: action,
+            reviewed_at: new Date().toISOString()
+          })
+          .eq('id', submissionId);
+
+        if (updateError) throw updateError;
+
+        if (action === 'approve') {
+          // Update user's points when approved
+          const currentPoints = submission.users.points || 0;
+          const campaignPoints = submission.campaigns.points || 0;
+          
+          const { error: pointsError } = await supabase
+            .from('users')
+            .update({ points: currentPoints + campaignPoints })
+            .eq('id', submission.users.id);
+
+          if (pointsError) throw pointsError;
+        }
+
+        // Create notification for the user
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert([{
+            user_id: submission.users.id,
+            submission_id: submissionId,
+            title: action === 'approve' ? '🎉 Submission Approved!' : 'Submission Update',
+            message: action === 'approve' 
+              ? `Congratulations! Your submission for "${submission.campaigns.name}" has been approved. You've earned ${submission.campaigns.points} points!` 
+              : `Your submission for "${submission.campaigns.name}" has been reviewed and was not approved this time.`,
+            type: action === 'approve' ? 'success' : 'info'
+          }]);
+
+        if (notificationError) throw notificationError;
+
+        // Show success toast to brand
+        toast({
+          title: action === 'approve' ? "Submission Approved" : "Submission Rejected",
+          description: `The submission has been ${action}ed successfully.`,
+          variant: "default"
+        });
+
+        // Refresh submissions list
+        await fetchSubmissions();
+
+      } catch (err: any) {
+        console.error(`Error ${action}ing submission:`, err);
+        toast({
+          title: "Action Failed",
+          description: err.message || `Failed to ${action} the submission. Please try again.`,
+          variant: "destructive"
+        });
+      }
+    };

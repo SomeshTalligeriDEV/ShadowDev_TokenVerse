@@ -1,0 +1,34 @@
+    const handleSubmissionAction = async (submissionId: string, action: 'approve' | 'reject') => {
+      try {
+        // Update submission status
+        const { error: updateError } = await supabase
+          .from('submissions')
+          .update({ 
+            status: action,
+            reviewed_at: new Date().toISOString()
+          })
+          .eq('id', submissionId);
+
+        if (updateError) throw updateError;
+
+        // Show fancy success toast
+        toast({
+          title: action === 'approve' ? "✨ Approved!" : "Submission Rejected",
+          description: action === 'approve' 
+            ? "The submission has been approved successfully!" 
+            : "The submission has been rejected.",
+          variant: "default",
+          className: action === 'approve' ? "bg-gradient-primary text-primary-foreground" : undefined
+        });
+
+        // Refresh the submissions list
+        fetchSubmissions();
+      } catch (error) {
+        console.error(`Error ${action}ing submission:`, error);
+        toast({
+          title: "Action Failed",
+          description: `Failed to ${action} the submission. Please try again.`,
+          variant: "destructive"
+        });
+      }
+    };
