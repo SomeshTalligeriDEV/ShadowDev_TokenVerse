@@ -32,8 +32,6 @@ Usage Flow
 
 Future Roadmap
 
-Multi-chain expansion (Polygon, Solana)
-
-DAO-based governance for campaign approvals and voting
-
-Partnerships with real-world brands and analytics dashboards
+1.Multi-chain expansion (Polygon, Solana)
+2.DAO-based governance for campaign approvals and voting
+3.Partnerships with real-world brands and analytics dashboards
